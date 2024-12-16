@@ -1,6 +1,6 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget, QSlider, QLineEdit
-from PyQt6.QtCore import QTimer, Qt
+from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget, QSlider, QLineEdit
+from PySide6.QtCore import QTimer, Qt
 
 class MetronomeApp(QMainWindow):
     def __init__(self):
@@ -9,14 +9,14 @@ class MetronomeApp(QMainWindow):
         self.setGeometry(100, 100, 300, 200)
         
         self.label = QLabel("Metronome", self)
-        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label.setAlignment(Qt.AlignCenter)
 
         self.bpm_display = QLineEdit(self)
         self.bpm_display.setReadOnly(True)
-        self.bpm_display.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.bpm_display.setAlignment(Qt.AlignCenter)
         self.bpm_display.setText("60 BPM")
         
-        self.slider = QSlider(Qt.Orientation.Horizontal, self)
+        self.slider = QSlider(Qt.Horizontal, self)
         self.slider.setRange(30, 240)  # BPM range
         self.slider.setValue(60)       # Default BPM
         self.slider.valueChanged.connect(self.update_bpm)

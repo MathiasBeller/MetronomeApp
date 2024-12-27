@@ -106,6 +106,7 @@ class MetronomeApp(QMainWindow):
         self.update_taktart(0)  # Initialize beat labels
 
         self.sound = QSoundEffect()
+        self.first_beat_sound = QSoundEffect()
         self.update_sound(0)  # Initialize sound
 
         self.current_playlist = []
@@ -218,6 +219,10 @@ class MetronomeApp(QMainWindow):
         sound_file = self.sound_files[sound_name]
         self.sound.setSource(QUrl.fromLocalFile(sound_file))
         self.sound.setVolume(1.0)  # Set volume to 100%
+        # Assuming you have a different sound file for the first beat
+        first_beat_sound_file = sound_file.replace(".wav", "_first.wav")
+        self.first_beat_sound.setSource(QUrl.fromLocalFile(first_beat_sound_file))
+        self.first_beat_sound.setVolume(1.0)  # Set volume to 100%
 
     def create_beat_labels(self):
         # Clear existing labels
@@ -231,7 +236,11 @@ class MetronomeApp(QMainWindow):
         for i in range(beats):
             label = QLabel(f"Beat {i+1}", self)
             label.setAlignment(Qt.AlignCenter)
-            label.setStyleSheet("background-color: white;")
+            label.setFixedSize(100, 100)  # Set fixed size for the labels
+            if i == 0:
+                label.setStyleSheet("background-color: white; font-size: 24px; border: 2px solid red;")  # Emphasize first beat
+            else:
+                label.setStyleSheet("background-color: white; font-size: 24px;")
             self.beat_layout.addWidget(label)
             self.beat_labels.append(label)
 
@@ -243,11 +252,17 @@ class MetronomeApp(QMainWindow):
 
         for i, label in enumerate(self.beat_labels):
             if i == self._beat_count - 1:
-                label.setStyleSheet("background-color: blue;")  # Flash effect
+                if i == 0:
+                    label.setStyleSheet("background-color: red;")  # Flash effect for first beat
+                    self.first_beat_sound.play()
+                else:
+                    label.setStyleSheet("background-color: blue;")  # Flash effect for other beats
+                    self.sound.play()
             else:
-                label.setStyleSheet("background-color: white;")
-
-        self.sound.play()
+                if i == 0:
+                    label.setStyleSheet("background-color: white; border: 2px solid red;")  # Reset first beat
+                else:
+                    label.setStyleSheet("background-color: white;")
 
     def start_metronome(self):
         self.timer.start(60000 // self._bpm)

@@ -4,12 +4,13 @@ import sqlite3
 from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget, QSlider, QLineEdit, QComboBox, QHBoxLayout, QPushButton, QInputDialog, QTextEdit
 from PySide6.QtCore import QTimer, Qt, QUrl
 from PySide6.QtMultimedia import QSoundEffect
+from PySide6.QtGui import QIntValidator  # Correct import for QIntValidator
 
 class MetronomeApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Metronome")
-        self.setGeometry(100, 100, 600, 400)
+        self.setGeometry(100, 100, 600, 600)
         
         self.init_db()
         
@@ -35,6 +36,19 @@ class MetronomeApp(QMainWindow):
         self.populate_playlist_selector()
         self.playlist_selector.currentIndexChanged.connect(self.load_playlist)
 
+        self.song_name_input = QLineEdit(self)
+        self.song_name_input.setPlaceholderText("Enter song name")
+
+        self.bpm_input = QLineEdit(self)
+        self.bpm_input.setPlaceholderText("Enter BPM")
+        self.bpm_input.setValidator(QIntValidator(30, 240))  # Only allow integers between 30 and 240
+
+        self.taktart_input = QComboBox(self)
+        self.taktart_input.addItems(["3/4", "4/4", "5/4", "6/8"])
+
+        self.add_song_button = QPushButton("Add Song", self)
+        self.add_song_button.clicked.connect(self.add_song)
+
         self.save_playlist_button = QPushButton("Save Playlist", self)
         self.save_playlist_button.clicked.connect(self.save_playlist)
 
@@ -44,8 +58,17 @@ class MetronomeApp(QMainWindow):
         self.show_db_button = QPushButton("Show Database", self)
         self.show_db_button.clicked.connect(self.show_database)
 
+        self.start_button = QPushButton("Start", self)
+        self.start_button.clicked.connect(self.start_metronome)
+
+        self.stop_button = QPushButton("Stop", self)
+        self.stop_button.clicked.connect(self.stop_metronome)
+
         self.db_display = QTextEdit(self)
         self.db_display.setReadOnly(True)
+
+        self.playlist_display = QTextEdit(self)
+        self.playlist_display.setReadOnly(True)
 
         self.beat_layout = QHBoxLayout()
         self.beat_labels = []
@@ -56,9 +79,16 @@ class MetronomeApp(QMainWindow):
         layout.addWidget(self.taktart_selector)
         layout.addWidget(self.sound_selector)
         layout.addWidget(self.playlist_selector)
+        layout.addWidget(self.song_name_input)
+        layout.addWidget(self.bpm_input)
+        layout.addWidget(self.taktart_input)
+        layout.addWidget(self.add_song_button)
         layout.addWidget(self.save_playlist_button)
         layout.addWidget(self.load_playlist_button)
         layout.addWidget(self.show_db_button)
+        layout.addWidget(self.start_button)
+        layout.addWidget(self.stop_button)
+        layout.addWidget(self.playlist_display)
         layout.addWidget(self.db_display)
         layout.addLayout(self.beat_layout)
         container = QWidget()
@@ -77,6 +107,8 @@ class MetronomeApp(QMainWindow):
 
         self.sound = QSoundEffect()
         self.update_sound(0)  # Initialize sound
+
+        self.current_playlist = []
 
     def init_db(self):
         self.conn = sqlite3.connect('metronome.db')
@@ -106,31 +138,43 @@ class MetronomeApp(QMainWindow):
         for playlist in playlists:
             self.playlist_selector.addItem(playlist[0])
 
+    def add_song(self):
+        song_name = self.song_name_input.text()
+        bpm = self.bpm_input.text()
+        taktart = self.taktart_input.currentText()
+        if song_name and bpm:
+            self.current_playlist.append((song_name, bpm, taktart))
+            self.update_playlist_display()
+
+    def update_playlist_display(self):
+        playlist_content = "Current Playlist:\n"
+        for song in self.current_playlist:
+            playlist_content += f"Name: {song[0]}, BPM: {song[1]}, Taktart: {song[2]}\n"
+        self.playlist_display.setText(playlist_content)
+
     def save_playlist(self):
         playlist_name, ok = QInputDialog.getText(self, 'Save Playlist', 'Enter playlist name:')
         if ok and playlist_name:
             self.cursor.execute('INSERT INTO playlists (name) VALUES (?)', (playlist_name,))
             playlist_id = self.cursor.lastrowid
-            self.cursor.execute('''
-                INSERT INTO songs (playlist_id, name, bpm, time_signature)
-                VALUES (?, ?, ?, ?)
-            ''', (playlist_id, 'Current Song', self._bpm, self._taktart))
+            for song in self.current_playlist:
+                self.cursor.execute('''
+                    INSERT INTO songs (playlist_id, name, bpm, time_signature)
+                    VALUES (?, ?, ?, ?)
+                ''', (playlist_id, song[0], song[1], song[2]))
             self.conn.commit()
             self.populate_playlist_selector()
+            self.current_playlist = []
+            self.update_playlist_display()
 
     def load_playlist(self):
         playlist_name = self.playlist_selector.currentText()
         self.cursor.execute('SELECT id FROM playlists WHERE name = ?', (playlist_name,))
         playlist_id = self.cursor.fetchone()[0]
         self.cursor.execute('SELECT name, bpm, time_signature FROM songs WHERE playlist_id = ?', (playlist_id,))
-        song = self.cursor.fetchone()
-        if song:
-            self._bpm = song[1]
-            self._taktart = song[2]
-            self.slider.setValue(self._bpm)
-            self.taktart_selector.setCurrentText(self._taktart)
-            self.update_bpm(self._bpm)
-            self.update_taktart(self.taktart_selector.currentIndex())
+        songs = self.cursor.fetchall()
+        self.current_playlist = [(song[0], song[1], song[2]) for song in songs]
+        self.update_playlist_display()
 
     def show_database(self):
         self.cursor.execute('SELECT * FROM playlists')
@@ -204,6 +248,12 @@ class MetronomeApp(QMainWindow):
                 label.setStyleSheet("background-color: white;")
 
         self.sound.play()
+
+    def start_metronome(self):
+        self.timer.start(60000 // self._bpm)
+
+    def stop_metronome(self):
+        self.timer.stop()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

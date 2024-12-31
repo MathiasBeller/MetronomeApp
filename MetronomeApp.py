@@ -1,10 +1,10 @@
 import sys
 import os
 import sqlite3
-from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget, QSlider, QLineEdit, QComboBox, QHBoxLayout, QPushButton, QInputDialog, QTextEdit, QGroupBox
+from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget, QSlider, QLineEdit, QComboBox, QHBoxLayout, QPushButton, QInputDialog, QTextEdit, QGroupBox, QListWidget, QListWidgetItem
 from PySide6.QtCore import QTimer, Qt, QUrl
 from PySide6.QtMultimedia import QSoundEffect
-from PySide6.QtGui import QIntValidator  # Correct import for QIntValidator
+from PySide6.QtGui import QIntValidator, QIcon  # Correct import for QIntValidator and QIcon
 
 class MetronomeApp(QMainWindow):
     def __init__(self):
@@ -60,17 +60,23 @@ class MetronomeApp(QMainWindow):
         self.show_db_button = QPushButton("Show Database", self)
         self.show_db_button.clicked.connect(self.show_database)
 
-        self.start_button = QPushButton("Start", self)
+        # Load icons
+        play_icon = QIcon(os.path.join(os.path.dirname(__file__), "play.png"))
+        stop_icon = QIcon(os.path.join(os.path.dirname(__file__), "stop.png"))
+
+        self.start_button = QPushButton(self)
+        self.start_button.setIcon(play_icon)
         self.start_button.clicked.connect(self.start_metronome)
 
-        self.stop_button = QPushButton("Stop", self)
+        self.stop_button = QPushButton(self)
+        self.stop_button.setIcon(stop_icon)
         self.stop_button.clicked.connect(self.stop_metronome)
 
         self.db_display = QTextEdit(self)
         self.db_display.setReadOnly(True)
 
-        self.playlist_display = QTextEdit(self)
-        self.playlist_display.setReadOnly(True)
+        self.playlist_display = QListWidget(self)
+        self.playlist_display.itemClicked.connect(self.song_clicked)
 
         self.beat_layout = QHBoxLayout()
         self.beat_labels = []
@@ -80,6 +86,7 @@ class MetronomeApp(QMainWindow):
         settings_layout = QVBoxLayout()
         settings_layout.addWidget(self.bpm_display)
         settings_layout.addWidget(self.slider)
+
         # Add labels and combo boxes to the settings layout
         settings_layout.addWidget(QLabel("Time Signature:"))
         settings_layout.addWidget(self.taktart_selector)
@@ -168,10 +175,11 @@ class MetronomeApp(QMainWindow):
             self.update_playlist_display()
 
     def update_playlist_display(self):
-        playlist_content = "Current Playlist:\n"
+        self.playlist_display.clear()
         for song in self.current_playlist:
-            playlist_content += f"Name: {song[0]}, BPM: {song[1]}, Taktart: {song[2]}\n"
-        self.playlist_display.setText(playlist_content)
+            item = QListWidgetItem(f"Name: {song[0]}, BPM: {song[1]}, Taktart: {song[2]}")
+            item.setData(Qt.UserRole, song)
+            self.playlist_display.addItem(item)
 
     def save_playlist(self):
         playlist_name, ok = QInputDialog.getText(self, 'Save Playlist', 'Enter playlist name:')
@@ -285,6 +293,14 @@ class MetronomeApp(QMainWindow):
                     label.setStyleSheet("background-color: white; border: 2px solid red;")  # Reset first beat
                 else:
                     label.setStyleSheet("background-color: white;")
+
+    def song_clicked(self, item):
+        song = item.data(Qt.UserRole)
+        self.song_name_input.setText(song[0])
+        self.bpm_input.setText(str(song[1]))  # Convert BPM to string
+        self.taktart_input.setCurrentText(song[2])
+        self.slider.setValue(int(song[1]))
+        self.taktart_selector.setCurrentText(song[2])
 
     def start_metronome(self):
         self.timer.start(60000 // self._bpm)

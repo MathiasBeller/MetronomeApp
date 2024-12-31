@@ -1,7 +1,7 @@
 import sys
 import os
 import sqlite3
-from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget, QSlider, QLineEdit, QComboBox, QHBoxLayout, QPushButton, QInputDialog, QTextEdit
+from PySide6.QtWidgets import QApplication, QMainWindow, QLabel, QVBoxLayout, QWidget, QSlider, QLineEdit, QComboBox, QHBoxLayout, QPushButton, QInputDialog, QTextEdit, QGroupBox
 from PySide6.QtCore import QTimer, Qt, QUrl
 from PySide6.QtMultimedia import QSoundEffect
 from PySide6.QtGui import QIntValidator  # Correct import for QIntValidator
@@ -29,8 +29,10 @@ class MetronomeApp(QMainWindow):
         self.taktart_selector.currentIndexChanged.connect(self.update_taktart)
 
         self.sound_selector = QComboBox(self)
+        self.first_beat_sound_selector = QComboBox(self)  # Initialize first_beat_sound_selector
         self.populate_sound_selector()
         self.sound_selector.currentIndexChanged.connect(self.update_sound)
+        self.first_beat_sound_selector.currentIndexChanged.connect(self.update_sound)
 
         self.playlist_selector = QComboBox(self)
         self.populate_playlist_selector()
@@ -73,26 +75,44 @@ class MetronomeApp(QMainWindow):
         self.beat_layout = QHBoxLayout()
         self.beat_labels = []
 
-        layout = QVBoxLayout()
-        layout.addWidget(self.bpm_display)
-        layout.addWidget(self.slider)
-        layout.addWidget(self.taktart_selector)
-        layout.addWidget(self.sound_selector)
-        layout.addWidget(self.playlist_selector)
-        layout.addWidget(self.song_name_input)
-        layout.addWidget(self.bpm_input)
-        layout.addWidget(self.taktart_input)
-        layout.addWidget(self.add_song_button)
-        layout.addWidget(self.save_playlist_button)
-        layout.addWidget(self.load_playlist_button)
-        layout.addWidget(self.show_db_button)
-        layout.addWidget(self.start_button)
-        layout.addWidget(self.stop_button)
-        layout.addWidget(self.playlist_display)
-        layout.addWidget(self.db_display)
-        layout.addLayout(self.beat_layout)
+        # GroupBox for current settings
+        settings_group = QGroupBox("Current Settings")
+        settings_layout = QVBoxLayout()
+        settings_layout.addWidget(self.bpm_display)
+        settings_layout.addWidget(self.slider)
+        # Add labels and combo boxes to the settings layout
+        settings_layout.addWidget(QLabel("Time Signature:"))
+        settings_layout.addWidget(self.taktart_selector)
+        settings_layout.addWidget(QLabel("Sound:"))
+        settings_layout.addWidget(self.sound_selector)
+        settings_layout.addWidget(QLabel("First Beat Sound:"))
+        settings_layout.addWidget(self.first_beat_sound_selector)
+        settings_layout.addWidget(self.start_button)
+        settings_layout.addWidget(self.stop_button)
+        settings_layout.addLayout(self.beat_layout)
+        settings_group.setLayout(settings_layout)
+
+        # GroupBox for database information
+        db_group = QGroupBox("Database Information")
+        db_layout = QVBoxLayout()
+        db_layout.addWidget(self.playlist_selector)
+        db_layout.addWidget(self.song_name_input)
+        db_layout.addWidget(self.bpm_input)
+        db_layout.addWidget(self.taktart_input)
+        db_layout.addWidget(self.add_song_button)
+        db_layout.addWidget(self.save_playlist_button)
+        db_layout.addWidget(self.load_playlist_button)
+        db_layout.addWidget(self.show_db_button)
+        db_layout.addWidget(self.playlist_display)
+        db_layout.addWidget(self.db_display)
+        db_group.setLayout(db_layout)
+
+        # Main layout
+        main_layout = QVBoxLayout()
+        main_layout.addWidget(settings_group)
+        main_layout.addWidget(db_group)
         container = QWidget()
-        container.setLayout(layout)
+        container.setLayout(main_layout)
         
         self.setCentralWidget(container)
         
@@ -202,6 +222,7 @@ class MetronomeApp(QMainWindow):
             if file_name.endswith(".wav"):
                 name_without_extension = os.path.splitext(file_name)[0]
                 self.sound_selector.addItem(name_without_extension)
+                self.first_beat_sound_selector.addItem(name_without_extension)
                 self.sound_files[name_without_extension] = os.path.join(sound_folder, file_name)
 
     def update_bpm(self, value):
@@ -219,8 +240,9 @@ class MetronomeApp(QMainWindow):
         sound_file = self.sound_files[sound_name]
         self.sound.setSource(QUrl.fromLocalFile(sound_file))
         self.sound.setVolume(1.0)  # Set volume to 100%
-        # Assuming you have a different sound file for the first beat
-        first_beat_sound_file = sound_file.replace(".wav", "_first.wav")
+
+        first_beat_sound_name = self.first_beat_sound_selector.currentText()
+        first_beat_sound_file = self.sound_files[first_beat_sound_name]
         self.first_beat_sound.setSource(QUrl.fromLocalFile(first_beat_sound_file))
         self.first_beat_sound.setVolume(1.0)  # Set volume to 100%
 
